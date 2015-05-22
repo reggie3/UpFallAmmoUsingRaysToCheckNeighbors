@@ -1,11 +1,12 @@
 
 //create a random box in a random location
 function Shape(scene, boxWidth, boxHeight, boxDepth, bolReadyForNewShape,
-    width, height, numBoxesWide, onBlockCollision, fieldArray) {
+    width, height, numBoxesWide, onBlockCollision, fieldArray, numBoxesWide) {
 
     this.fieldArray = fieldArray;
     this.scene = scene;
     this.boxHeight = boxHeight;
+    this.numBoxesWide = numBoxesWide;
 
     //determine the color
     var colorIndex = getRandBetween(0, this.boxColors.length - 1);
@@ -47,13 +48,14 @@ function Shape(scene, boxWidth, boxHeight, boxDepth, bolReadyForNewShape,
 
     this.shapeID = this.currentID;
     ShapeProto.currentID++;
+    this.bolIsDead=false;
 }
 
 var ShapeProto = {
     fieldArray: undefined,
     physiShape: undefined,
     boxColors: [0xff0000, 0xffff00, 0x00ff00, 0x0000ff],
-    colors: ["r", "y", "b", "g"],
+    colors: ["r", "y", "g", "b"],
     shapeID: undefined,
     currentID: 0,
     shapes: {},
@@ -69,28 +71,38 @@ var ShapeProto = {
     //event per actuall collision even if there is a bounce
     prevColLoc: new THREE.Vector3(),
     curColLoc: new THREE.Vector3(),
+    bolIsDead: false,
     //matchStack : {},
     
     update: function (colBottomShape) {
-        var vel = this.physiShape.getLinearVelocity();
-        if ((vel.y > 0) && (colBottomShape)) {
-            var distance = getDistance(this.physiShape.position,
-                colBottomShape.physiShape.position);
-            //console.log("Distance : " + distance);
-            if (distance <= 0) {
-                //                console.log("collision : " + this.shapeColor + ":" + 
-                //                    this.shapeID + " - " + colBottomShape.shapeColor + ":" + 
-                //                    colBottomShape.shapeID);
-                return false;
-            }
-            return false;
-        }
 
     },
 
+    //mark this blick as dead.  We'll remove all the dead blocks in one go
     kill: function () {
-        bolIsDead: true;
-        this.scene.remove(this);
+        this.bolIsDead = true;
+    },
+    
+    //remove the dead blocks from the data matrix
+    removeDeadBlocks : function(numBoxesWide, fieldArray, scene){
+        
+        //remove dead blocks from the field array
+        for(var i=0; i<numBoxesWide; i++){
+            for(var j=fieldArray[i].length-1; j>=0; j--){
+                if(fieldArray[i][j].bolIsDead){
+                    //remove this block from the scene
+                    scene.remove(fieldArray[i][j].physiShape);
+                    fieldArray[i].splice(j, 1);
+                }
+            }
+        }
+        
+        //now make sure all block indexes are correct since we may have removed a block above it in he array
+        for(var i=0; i<numBoxesWide; i++){
+            for(var j=fieldArray[i].length-1; j>=0; j--){
+                fieldArray[i][j].index = j;
+            }
+        }
     },
 
     collisionHandler: function (shape, collided_with, linearVelocity, angularVelocity) {
@@ -100,18 +112,30 @@ var ShapeProto = {
             console.log("collision: " + this.shapeID);
             
             //place the shape in the field array
+            this.index = this.fieldArray[this.columnNumber].length;
             this.fieldArray[this.columnNumber].push(this);
-            this.index = this.fieldArray[this.columnNumber].length - 1;
-
-            var matchStack = { color: this.shapeColor };   //clear the match stack prior to checking for matches
+            
+            //check for matches
+            var matchStack = { color: this.shapeColor, matches: {} };   //clear the match stack prior to checking for matches
             matchStack = this.checkForMatches(matchStack, this);
             
             //print out the nuber of matches
+            var numMatches = Object.keys(matchStack.matches).length;
+            if (numMatches > 1) {
+                //console.log(numMatches + " " + matchStack.color  + " matches found");
             
-            console.log((Object.keys(matchStack).length-1) + " matches found");
+                //remove the matching blocks from the scene
             
-            //remove the matching blocks from the scene
-            this.scene.remove()
+                for (var key in matchStack.matches) {
+                    if (matchStack.matches.hasOwnProperty(key)) {
+                        matchStack.matches[key].kill();
+                    }
+                }
+                //remove the dead blocks from the data matrix
+                this.removeDeadBlocks();
+            }
+            
+            
         }
     },
 
@@ -134,18 +158,22 @@ var ShapeProto = {
     checkForMatches: function (matchStack, shape) {
         
         //check if match stack contains this shape already
-        if (!matchStack[shape.shapeID]) {
+        if (!matchStack.matches[shape.shapeID]) {
             if (this.shapeColor === matchStack.color) {
-                matchStack[shape.shapeID] = this;
+                matchStack.matches[shape.shapeID] = this;
         
                 //get the shape to the left
-                var leftNeighbor = this.fieldArray[shape.columnNumber - 1][shape.index];
+                if(this.fieldArray[shape.columnNumber - 1])
+                    var leftNeighbor = this.fieldArray[shape.columnNumber - 1][shape.index];
                 //get the shape to the right
-                var rightNeighbor = this.fieldArray[shape.columnNumber + 1][shape.index];
+                if(this.fieldArray[shape.columnNumber + 1])
+                    var rightNeighbor = this.fieldArray[shape.columnNumber + 1][shape.index];
                 //get the shape above   
-                var aboveNeighbor = this.fieldArray[shape.columnNumber][shape.index - 1];
+                if(this.fieldArray[shape.columnNumber][shape.index - 1])
+                    var aboveNeighbor = this.fieldArray[shape.columnNumber][shape.index - 1];
                 //get the shape below   
-                var belowNeighbor = this.fieldArray[shape.columnNumber][shape.index + 1];
+                if(this.fieldArray[shape.columnNumber][shape.index + 1])
+                    var belowNeighbor = this.fieldArray[shape.columnNumber][shape.index + 1];
 
                 if (leftNeighbor) {
                     leftNeighbor.checkForMatches(matchStack, leftNeighbor);

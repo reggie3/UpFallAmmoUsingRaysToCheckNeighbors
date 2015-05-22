@@ -72,7 +72,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function setupPhysicsWorld() {
         scene = new Physijs.Scene;
-        scene.setGravity(new THREE.Vector3(0, 9.8, 0));
+        scene.setGravity(new THREE.Vector3(0, 30, 0));
         scene.addEventListener(
             'update',
             function () {
@@ -126,30 +126,20 @@ document.addEventListener('DOMContentLoaded', function () {
 
 
         //loop through the shapes and update
-        //        for (var key in ShapeProto.shapes) {
-        //            if (ShapeProto.shapes.hasOwnProperty(key)) {
-        //                var shape = ShapeProto.shapes[key];
-        //
-        //                //pass the update function the lowest block in the column 
-        //                if (fieldArray[shape.columnNumber].length - 2)
-        //                    var curBottom = fieldArray[shape.columnNumber][fieldArray[shape.columnNumber].length - 2];
-        //                var hasCollided = shape.update(curBottom);
-        //                if (hasCollided) {
-        //
-        //
-        //
-        //                    //begin the series of recursive calls looking for color matches
-        //                    checkLeftMatch(shape);
-        //                    checkRightMatch(shape);
-        //                    checkPreviouMatch(shape);
-        //
-        //                    console.log("matches: " + matchStack.length);
-        //                    matchStack = [];
-        //                }
-        //            }
-        //        }
+//        for (var key in ShapeProto.shapes) {
+//            if (ShapeProto.shapes.hasOwnProperty(key)) {
+//                var shape = ShapeProto.shapes[key];
+//                if(shape.bolIsDead){
+//                    scene.remove(fieldArray[shape.columnNumber][shape.index].physiShape);
+//                    fieldArray[shape.columnNumber].splice(shape.index,1); 
+//                    shape = undefined;
+//                }
+//            }
+//        }
+                
         render();
         requestAnimationFrame(animate);
+        ShapeProto.removeDeadBlocks(numBoxesWide, fieldArray, scene);
     }
 
     function render() {
@@ -263,7 +253,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function createFallingShape() {
         var shape = new Shape(scene, boxWidth, boxHeight, boxDepth, bolReadyForNewShape,
-            width, height, numBoxesWide, onBlockCollision, fieldArray);
+            width, height, numBoxesWide, onBlockCollision, fieldArray, numBoxesWide);
         //add the smape to the protoypes list of shapes
         ShapeProto.shapes[shape.shapeID] = shape;
         shapes.push(shape);
