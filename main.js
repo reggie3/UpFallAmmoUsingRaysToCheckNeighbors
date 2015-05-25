@@ -54,6 +54,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    //setup container
     function setupContainer() {
         container = document.createElement("div");
         document.body.appendChild(container);
