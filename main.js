@@ -1,6 +1,6 @@
 document.addEventListener('DOMContentLoaded', function () {
     var frameCounter = 0;
-    var stats, container, renderer, scene, camera, overlay;
+    var stats, physicsStats, container, renderer, scene, camera, overlay;
     var windowHalfX = window.innerWidth / 2;
     var windowHalfY = window.innerHeight / 2;
     var bolReadyForNewShape = true;
@@ -76,10 +76,10 @@ document.addEventListener('DOMContentLoaded', function () {
         scene.addEventListener(
             'update',
             function () {
-                scene.simulate(undefined, 1);
-
+                scene.simulate();
+                physicsStats.update();
             }
-            );
+        );
     }
 
     function setupCamera() {
@@ -106,8 +106,14 @@ document.addEventListener('DOMContentLoaded', function () {
     function setupStats() {
         stats = new Stats();
         stats.domElement.style.position = 'absolute';
-        stats.domElement.style.top = '0px';
+        stats.domElement.style.bottom = '0px';
         container.appendChild(stats.domElement);
+        
+        physicsStats = new Stats();
+		physicsStats.domElement.style.position = 'absolute';
+		physicsStats.domElement.style.bottom = '50px';
+		physicsStats.domElement.style.zIndex = 100;
+		container.appendChild( physicsStats.domElement );
     }
 
     function animate() {
@@ -119,27 +125,25 @@ document.addEventListener('DOMContentLoaded', function () {
                 createFallingShape();
             }
         }
-        else{
+        else{//create the initial falling shape
             createFallingShape();
         }
 
 
 
         //loop through the shapes and update
-//        for (var key in ShapeProto.shapes) {
-//            if (ShapeProto.shapes.hasOwnProperty(key)) {
-//                var shape = ShapeProto.shapes[key];
-//                if(shape.bolIsDead){
-//                    scene.remove(fieldArray[shape.columnNumber][shape.index].physiShape);
-//                    fieldArray[shape.columnNumber].splice(shape.index,1); 
-//                    shape = undefined;
-//                }
-//            }
-//        }
+        for (var key in ShapeProto.shapes) {
+            if (ShapeProto.shapes.hasOwnProperty(key)) {
+                var shape = ShapeProto.shapes[key];
+                shape.update();
+            }
+        }
                 
         render();
         requestAnimationFrame(animate);
+        //setTimeout(ShapeProto.removeDeadBlocks(numBoxesWide, fieldArray, scene), 1000);
         ShapeProto.removeDeadBlocks(numBoxesWide, fieldArray, scene);
+        ShapeProto.setAllBlocksToUnevaluated(numBoxesWide, fieldArray);
     }
 
     function render() {
@@ -195,12 +199,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
         var wallMaterial = Physijs.createMaterial(
             new THREE.MeshPhongMaterial({ color: 0x11ff00 }),
-            1, // high friction
-            .0 // low restitution
+            .8, // high friction
+            .4 // low restitution
             );
         var ceiling = new Physijs.BoxMesh(
-            new THREE.BoxGeometry(width, 1, 1),
-            wallMaterial,
+            new THREE.BoxGeometry(width, 1, 100),
+            new THREE.MeshPhongMaterial({ color: 0x11ff00 }),
             0   //mass
             );
         //ceiling.receiveShadow = true;
