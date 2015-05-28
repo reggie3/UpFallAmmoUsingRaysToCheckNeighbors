@@ -1,6 +1,6 @@
 document.addEventListener('DOMContentLoaded', function () {
     var frameCounter = 0;
-    var stats, physicsStats, container, renderer, scene, camera, overlay;
+    var stats, physicsStats, container, renderer, scene, world, camera, overlay;
     var windowHalfX = window.innerWidth / 2;
     var windowHalfY = window.innerHeight / 2;
     var bolReadyForNewShape = true;
@@ -19,14 +19,13 @@ document.addEventListener('DOMContentLoaded', function () {
 
 
     function init() {
-        //setup physijs
-        Physijs.scripts.worker = './js/physijs_worker.js';
-        Physijs.scripts.ammo = './ammo.js';
-
         setupOptions();
         setupContainer();
         setupRenderer();
-        setupPhysicsWorld();
+
+        //initialize physics engine
+        world = AmmoPhysicsHelper.initPhysics();
+        
         setupCamera();
         setupStats();
         setupLights();
