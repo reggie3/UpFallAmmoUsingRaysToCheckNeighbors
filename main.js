@@ -33,8 +33,8 @@ document.addEventListener('DOMContentLoaded', function () {
         addEventListeners();
         setupGeometry();
         setupFieldArray();  //an array that will hold the game data
+        ShapeProto.fieldArray = fieldArray;
 
-        
         //start the animation loop
         animate();
         scene.simulate();
@@ -109,19 +109,19 @@ document.addEventListener('DOMContentLoaded', function () {
         stats.domElement.style.position = 'absolute';
         stats.domElement.style.bottom = '0px';
         container.appendChild(stats.domElement);
-        
+
         physicsStats = new Stats();
-		physicsStats.domElement.style.position = 'absolute';
-		physicsStats.domElement.style.bottom = '50px';
-		physicsStats.domElement.style.zIndex = 100;
-		container.appendChild( physicsStats.domElement );
+        physicsStats.domElement.style.position = 'absolute';
+        physicsStats.domElement.style.bottom = '50px';
+        physicsStats.domElement.style.zIndex = 100;
+        container.appendChild( physicsStats.domElement );
     }
 
     function animate() {
         //console.log("frame: " + frameCounter);
-        
+
         //only create a new shape if the first one has reached .25 of the screen
-        if(ShapeProto.shapes[ShapeProto.currentID-1]){           
+        if(ShapeProto.shapes[ShapeProto.currentID-1]){
             if (ShapeProto.shapes[ShapeProto.currentID-1].physiShape.position.y > height/-2+2*boxHeight) {
                 createFallingShape();
             }
@@ -139,12 +139,12 @@ document.addEventListener('DOMContentLoaded', function () {
                 shape.update();
             }
         }
-                
+
         render();
         requestAnimationFrame(animate);
         //setTimeout(ShapeProto.removeDeadBlocks(numBoxesWide, fieldArray, scene), 1000);
-        ShapeProto.removeDeadBlocks(numBoxesWide, fieldArray, scene);
-        ShapeProto.setAllBlocksToUnevaluated(numBoxesWide, fieldArray);
+        ShapeProto.removeDeadBlocks(scene);
+        //ShapeProto.setAllBlocksToUnevaluated(numBoxesWide);
     }
 
     function render() {
@@ -202,12 +202,12 @@ document.addEventListener('DOMContentLoaded', function () {
             new THREE.MeshPhongMaterial({ color: 0x11ff00 }),
             .8, // high friction
             .4 // low restitution
-            );
+        );
         var ceiling = new Physijs.BoxMesh(
             new THREE.BoxGeometry(width, 1, 100),
             new THREE.MeshPhongMaterial({ color: 0x11ff00 }),
             0   //mass
-            );
+        );
         //ceiling.receiveShadow = true;
         ceiling.position.y = height / 2;
         //console.log("ceiling y = " + ceiling.position.y);
@@ -216,7 +216,7 @@ document.addEventListener('DOMContentLoaded', function () {
             new THREE.BoxGeometry(1, height, 1),
             wallMaterial,
             0   //mass
-            );
+        );
         rightWall.position.x = width / 2 - .5;
         //console.log("rightWall x= " + rightWall.position.x);
 
@@ -224,7 +224,7 @@ document.addEventListener('DOMContentLoaded', function () {
             new THREE.BoxGeometry(1, height, 1),
             wallMaterial,
             0   //mass
-            );
+        );
         leftWall.position.x = width / -2 - .5;
         //console.log("leftWall x= " + leftWall.position.x);
 
@@ -243,89 +243,11 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    //check the filed to see if anything needs updating
-    function onBlockCollision(otherObject, linear_velocity, angular_velocity) {
-
-        matchStack = [];
-        //begin the series of recursive calls looking for color matches
-        checkLeftMatch(this);
-        checkRightMatch(this);
-        checkPreviouMatch(this);
-
-        console.log("number of matches : " + matchStack.length);
-        matchStack = [];
-    }
-
     function createFallingShape() {
-        var shape = new Shape(scene, boxWidth, boxHeight, boxDepth, bolReadyForNewShape,
-            width, height, numBoxesWide, onBlockCollision, fieldArray, numBoxesWide);
+        var shape = new Shape(scene, boxWidth, boxHeight, boxDepth, height, numBoxesWide);
         //add the smape to the protoypes list of shapes
         ShapeProto.shapes[shape.shapeID] = shape;
         shapes.push(shape);
     }
 
-    function checkLeftMatch(shape) {
-        //look to the left of this column at this shapes index to see if there are any matches
-        if (fieldArray[shape.columnNumber - 1]) {
-            if ((fieldArray[shape.columnNumber - 1][shape.index]) &&
-                (!fieldArray[shape.columnNumber - 1][shape.index].bolIsDead) &&
-                (fieldArray[shape.columnNumber - 1][shape.index].shapeColor === shape.shapeColor)) {
-                var neighbor = fieldArray[shape.columnNumber - 1][shape.index];
-
-                //if there is a color match then add this neighbor to the match stack
-                //matchStack.push(neighbor);
-                console.log("color:  " + fieldArray[shape.columnNumber - 1][shape.index].shapeColor +
-                    " match found left");
-
-                checkLeftMatch(neighbor);
-                checkRightMatch(neighbor);
-                checkPreviouMatch(neighbor);
-            }
-            else {
-
-            }
-        }
-    }
-
-    function checkRightMatch(shape) {
-        //look right
-        if (fieldArray[shape.columnNumber + 1]) {
-            if ((fieldArray[shape.columnNumber + 1][shape.index]) &&
-                (!fieldArray[shape.columnNumber + 1][shape.index].bolIsDead) &&
-                (fieldArray[shape.columnNumber + 1][shape.index].shapeColor === shape.shapeColor)) {
-                var neighbor = fieldArray[shape.columnNumber + 1][shape.index];
-                matchStack.push(neighbor);
-                console.log("color:  " + fieldArray[shape.columnNumber + 1][shape.index].shapeColor +
-                    " match found right");
-
-                checkLeftMatch(neighbor);
-                checkRightMatch(neighbor);
-                checkPreviouMatch(neighbor);
-            }
-            else {
-
-            }
-        }
-    }
-
-    function checkPreviouMatch(shape) {
-        //look at the previous row
-        if (fieldArray[shape.columnNumber][shape.index - 1]) {
-            if ((!fieldArray[shape.columnNumber][shape.index - 1]) &&
-                (!fieldArray[shape.columnNumber][shape.index - 1].bolIsDead) &&
-                (fieldArray[shape.columnNumber][shape.index - 1].shapeColor === shape.shapeColor)) {
-                var neighbor = fieldArray[shape.columnNumber][shape.index - 1];
-                matchStack.push(neighbor);
-                console.log("color:  " + fieldArray[shape.columnNumber - 1][shape.index].shapeColor +
-                    " match found above");
-
-                checkLeftMatch(neighbor);
-                checkRightMatch(neighbor);
-                checkPreviouMatch(neighbor);
-            }
-            else {
-
-            }
-        }
-    }
 });
