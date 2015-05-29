@@ -1,11 +1,15 @@
 document.addEventListener('DOMContentLoaded', function () {
     var frameCounter = 0;
-    var stats, physicsStats, container, renderer, scene, world, camera, overlay;
+    var clock, stats, physicsStats, container, renderer, scene, world, camera, overlay;
     var windowHalfX = window.innerWidth / 2;
     var windowHalfY = window.innerHeight / 2;
     var bolReadyForNewShape = true;
     var shapes = [];
-
+    var walls = {
+         ceiling :{mesh: undefined, body: undefined},
+        rightWall : {mesh: undefined, body: undefined},
+        leftWall : {mesh: undefined, body: undefined}
+    };
     var width, height;
     var boxWidth, boxHeight, boxDepth;
     var numBoxesWide = 12;
@@ -23,20 +27,20 @@ document.addEventListener('DOMContentLoaded', function () {
         setupContainer();
         setupRenderer();
 
-        //initialize physics engine
+        scene=new THREE.Scene();
         world = AmmoPhysicsHelper.initPhysics();
-        
+        world.setGravity(new Ammo.btVector3(0, 10, 0));
+
         setupCamera();
         setupStats();
         setupLights();
         addEventListeners();
-        setupGeometry();
-        setupFieldArray();  //an array that will hold the game data
-        ShapeProto.fieldArray = fieldArray;
 
+        clock = new THREE.Clock();
         //start the animation loop
+        setupWalls();
         animate();
-        scene.simulate();
+
     }
 
     function setupOptions() {
@@ -68,18 +72,6 @@ document.addEventListener('DOMContentLoaded', function () {
         renderer.shadowMapSoft = true;
         renderer.shadowMapType = THREE.PCFShadowMap;
         container.appendChild(renderer.domElement);
-    }
-
-    function setupPhysicsWorld() {
-        scene = new Physijs.Scene;
-        scene.setGravity(new THREE.Vector3(0, 30, 0));
-        scene.addEventListener(
-            'update',
-            function () {
-                scene.simulate();
-                physicsStats.update();
-            }
-        );
     }
 
     function setupCamera() {
@@ -117,11 +109,12 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function animate() {
+        var dt = clock.getDelta();
         //console.log("frame: " + frameCounter);
 
         //only create a new shape if the first one has reached .25 of the screen
         if(ShapeProto.shapes[ShapeProto.currentID-1]){
-            if (ShapeProto.shapes[ShapeProto.currentID-1].physiShape.position.y > height/-2+2*boxHeight) {
+            if (ShapeProto.shapes[ShapeProto.currentID-1].mesh.position.y > height/-2+2*boxHeight) {
                 createFallingShape();
             }
         }
@@ -138,11 +131,11 @@ document.addEventListener('DOMContentLoaded', function () {
                 shape.update();
             }
         }
-
+        world.stepSimulation(dt,1);
         render();
         requestAnimationFrame(animate);
         //setTimeout(ShapeProto.removeDeadBlocks(numBoxesWide, fieldArray, scene), 1000);
-        ShapeProto.removeDeadBlocks(scene);
+        ShapeProto.removeDeadBlocks(scene, world);
         //ShapeProto.setAllBlocksToUnevaluated(numBoxesWide);
     }
 
@@ -195,56 +188,42 @@ document.addEventListener('DOMContentLoaded', function () {
         window.addEventListener('resize', onWindowResize, false);
     }
 
-    function setupGeometry() {
+    function setupWalls() {
+        var wallMaterial = new THREE.MeshPhongMaterial({ color: 0x11ff00 });
 
-        var wallMaterial = Physijs.createMaterial(
-            new THREE.MeshPhongMaterial({ color: 0x11ff00 }),
-            .8, // high friction
-            .4 // low restitution
-        );
-        var ceiling = new Physijs.BoxMesh(
-            new THREE.BoxGeometry(width, 1, 100),
-            new THREE.MeshPhongMaterial({ color: 0x11ff00 }),
-            0   //mass
-        );
-        //ceiling.receiveShadow = true;
-        ceiling.position.y = height / 2;
-        //console.log("ceiling y = " + ceiling.position.y);
+        walls.ceiling.mesh = new THREE.Mesh( new THREE.BoxGeometry(width, 1, 100),
+            wallMaterial);
+        walls.ceiling.mesh.position.y = height / 2;
 
-        var rightWall = new Physijs.BoxMesh(
-            new THREE.BoxGeometry(1, height, 1),
-            wallMaterial,
-            0   //mass
-        );
-        rightWall.position.x = width / 2 - .5;
-        //console.log("rightWall x= " + rightWall.position.x);
+        walls.rightWall.mesh = new THREE.Mesh(new THREE.BoxGeometry(1, height, 1),
+            wallMaterial)
+        walls.rightWall.mesh.position.x = width / 2 - .5;
 
-        var leftWall = new Physijs.BoxMesh(
-            new THREE.BoxGeometry(1, height, 1),
-            wallMaterial,
-            0   //mass
-        );
-        leftWall.position.x = width / -2 - .5;
-        //console.log("leftWall x= " + leftWall.position.x);
+        walls.leftWall.mesh = new THREE.Mesh( new THREE.BoxGeometry(1, height, 1),
+            wallMaterial);
+        walls.leftWall.mesh.position.x = width / -2 - .5;
 
-        rightWall.__dirtyPosition = true;
-        ceiling.__dirtyPosition = true;
-        leftWall.__dirtyPosition = true;
 
-        scene.add(ceiling);
-        scene.add(leftWall);
-        scene.add(rightWall);
-    }
+        scene.add(walls.ceiling.mesh);
+        scene.add(walls.leftWall.mesh);
+        scene.add(walls.rightWall.mesh)
 
-    function setupFieldArray() {
-        for (var i = 0; i < numBoxesWide; i++) {
-            fieldArray[i] = [];
+        //create the physics bodies for the walls
+        //loop through the shapes and update
+        for (var key in walls) {
+            if (walls.hasOwnProperty(key)) {
+                var wall = walls[key];
+                wall.mesh.updateMatrix();
+                wall.mesh.matrixAutoUpdate = false;
+                wall.body = AmmoPhysicsHelper.CreateStaticBox(wall.mesh, world);
+
+            }
         }
     }
 
     function createFallingShape() {
-        var shape = new Shape(scene, boxWidth, boxHeight, boxDepth, height, numBoxesWide);
-        //add the smape to the protoypes list of shapes
+        var shape = new Shape(scene, world, boxWidth, boxHeight, boxDepth, height, numBoxesWide);
+        //add the shape to the prototype's list of shapes
         ShapeProto.shapes[shape.shapeID] = shape;
         shapes.push(shape);
     }
